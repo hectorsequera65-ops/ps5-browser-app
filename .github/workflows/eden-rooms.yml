@@ -1,0 +1,35 @@
+name: Build Eden Rooms PS5 installer
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'assets/**'
+      - 'src/**'
+      - 'include/**'
+      - 'tools/**'
+      - 'Makefile'
+      - 'Dockerfile'
+      - '.github/workflows/eden-rooms.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build toolchain container
+        run: docker build -t eden-rooms-ps5-builder .
+      - name: Build ELF and PKG
+        run: |
+          docker run --rm --user root -v "$GITHUB_WORKSPACE:/workspace" -w /workspace eden-rooms-ps5-builder make all
+          ls -lh build/
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: EdenRooms-PS5-installers
+          path: |
+            build/*.elf
+            build/*.pkg
+          if-no-files-found: error
