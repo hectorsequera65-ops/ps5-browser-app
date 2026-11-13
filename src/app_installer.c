@@ -93,7 +93,7 @@ static int needs_update(const char *path, const uint8_t *expected_data,
 }
 
 int install_app_if_needed(void) {
-  const char *title_id = "BRWS00001";
+  const char *title_id = "EDEN00001";
   char base_dir[256];
   char param_path[256];
   char icon_path[256];
@@ -120,21 +120,21 @@ int install_app_if_needed(void) {
   }
 
   if (stat(base_dir, &st) == 0) {
-    log_msg("[BROWSER] Updating existing app (%s)...\n", title_id);
-    notify("Updating Browser Search...");
+    log_msg("[EDEN ROOMS] Updating existing app (%s)...\n", title_id);
+    notify("Updating Eden Rooms PS5...");
   } else {
-    log_msg("[BROWSER] Installing new app (%s)...\n", title_id);
-    notify("Installing Browser Search...");
+    log_msg("[EDEN ROOMS] Installing new app (%s)...\n", title_id);
+    notify("Installing Eden Rooms PS5...");
   }
 
   int err;
   if ((err = sceAppInstUtilInitialize())) {
-    log_msg("[BROWSER] sceAppInstUtilInitialize: error 0x%08X\n", err);
+    log_msg("[EDEN ROOMS] sceAppInstUtilInitialize: error 0x%08X\n", err);
     return -1;
   }
 
   if (mkdir(base_dir, 0755) && errno != EEXIST) {
-    log_msg("[BROWSER] Failed to create app dir: %s (errno: %d)\n", base_dir,
+    log_msg("[EDEN ROOMS] Failed to create app dir: %s (errno: %d)\n", base_dir,
            errno);
     sceAppInstUtilTerminate();
     return -1;
@@ -143,32 +143,32 @@ int install_app_if_needed(void) {
   char sce_sys_dir[256];
   snprintf(sce_sys_dir, sizeof(sce_sys_dir), "/user/app/%s/sce_sys", title_id);
   if (mkdir(sce_sys_dir, 0755) && errno != EEXIST) {
-    log_msg("[BROWSER] Failed to create sce_sys dir: %s (errno: %d)\n",
+    log_msg("[EDEN ROOMS] Failed to create sce_sys dir: %s (errno: %d)\n",
            sce_sys_dir, errno);
     sceAppInstUtilTerminate();
     return -1;
   }
 
   if (install_file(param_path, param_json, param_json_size)) {
-    log_msg("[BROWSER] Failed to install param.json\n");
+    log_msg("[EDEN ROOMS] Failed to install param.json\n");
     sceAppInstUtilTerminate();
     return -1;
   }
 
   if (install_file(icon_path, icon0_png, icon0_png_size)) {
-    log_msg("[BROWSER] Failed to install icon0.png\n");
+    log_msg("[EDEN ROOMS] Failed to install icon0.png\n");
     sceAppInstUtilTerminate();
     return -1;
   }
 
   if ((err = install_app(title_id, "/user/app/"))) {
-    log_msg("[BROWSER] install_app: error 0x%08X\n", err);
+    log_msg("[EDEN ROOMS] install_app: error 0x%08X\n", err);
     sceAppInstUtilTerminate();
     return -1;
   }
 
-  log_msg("[BROWSER] App installed successfully.\n");
-  notify("Browser Search ready!");
+  log_msg("[EDEN ROOMS] App installed successfully.\n");
+  notify("Eden Rooms PS5 ready!");
   
   sceAppInstUtilTerminate();
   return 0;
