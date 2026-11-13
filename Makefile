@@ -12,7 +12,7 @@ STAGING  := /tmp/ps5-browser-pkg-staging
 CACHE    := $(STAGING)/PackageFileCache
 STAGE_SC := $(CACHE)/sce_sys
 
-SRCS := src/main.c src/log.c src/notification.c src/app_installer.c
+SRCS := src/main.c src/log.c src/notification.c src/app_installer.c src/eden_bridge.c
 ASSETS := assets/param.json assets/icon0.png
 ELF  := build/EdenRooms-Installer.elf
 CFLAGS := -Os -Wall -ffunction-sections -fdata-sections $(INCLUDES)
