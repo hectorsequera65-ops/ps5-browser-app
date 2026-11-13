@@ -7,7 +7,7 @@ extern int sceNetCtlInit();
 extern int sceUserServiceInitialize(void *);
 
 int main(int argc, char *argv[]) {
-  log_msg("[BROWSER] Starting Internet Browser installer\n");
+  log_msg("[EDEN ROOMS] Starting Eden Rooms PS5 shortcut installer\n");
 
   sceNetCtlInit();
 
@@ -16,6 +16,6 @@ int main(int argc, char *argv[]) {
 
   install_app_if_needed();
 
-  log_msg("[BROWSER] Done\n");
+  log_msg("[EDEN ROOMS] Done\n");
   return 0;
 }
