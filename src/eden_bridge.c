@@ -163,8 +163,8 @@ static void handle_client(int fd) {
   char request[4096+1];int n=0;
   struct timeval tv={3,0};
   setsockopt(fd,SOL_SOCKET,SO_RCVTIMEO,&tv,sizeof(tv));
-  while(n<4096) {
-    ssize_t r=recv(fd,request+n,4096-n,0);
+  while(n<3500) {
+    ssize_t r=recv(fd,request+n,3500-n,0);
     if(r<=0)break;
     n+=(int)r;request[n]=0;
     if(strstr(request,"\r\n\r\n"))break;
@@ -184,6 +184,7 @@ static void handle_client(int fd) {
   if(len<=0||len>512){reply(fd,400,"{\"ok\":false,\"error\":\"invalid length\"}");return;}
   char *body=strstr(request,"\r\n\r\n")+4;
   size_t have=(size_t)(request+n-body);
+  if ((size_t)(body-request) + (size_t)len > sizeof(request)-1) {reply(fd,400,"{\"ok\":false,\"error\":\"request too large\"}");return;}
   while(have<(size_t)len) {
     ssize_t r=recv(fd,body+have,(size_t)len-have,0);
     if(r<=0){reply(fd,400,"{\"ok\":false,\"error\":\"incomplete body\"}");return;}
