@@ -14,7 +14,7 @@ STAGE_SC := $(CACHE)/sce_sys
 
 SRCS := src/main.c src/log.c src/notification.c src/app_installer.c
 ASSETS := assets/param.json assets/icon0.png
-ELF  := build/browser.elf
+ELF  := build/EdenRooms-Installer.elf
 CFLAGS := -Os -Wall -ffunction-sections -fdata-sections $(INCLUDES)
 LDFLAGS := -Wl,--gc-sections
 
