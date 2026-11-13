@@ -173,6 +173,11 @@ static void handle_client(int fd) {
   }
   if(n<=0)return;
   request[n]=0;
+  /* Read-only probe: never touches ProsperoEden's configuration. */
+  if(strncmp(request,"GET /v1/health HTTP/1.",22)==0) {
+    reply(fd,200,"{\\"ok\\":true,\\"service\\":\\"eden-bridge\\",\\"writeEnabled\\":false}");
+    return;
+  }
   if(strncmp(request,"POST /v1/connection HTTP/1.",27)!=0) {reply(fd,404,"{\"ok\":false,\"error\":\"not found\"}");return;}
   /* A web page must be the exact trusted origin. */
   if(!strstr(request,"\r\nOrigin: " ORIGIN "\r\n") &&
