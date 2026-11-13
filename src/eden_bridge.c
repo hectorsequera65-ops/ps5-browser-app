@@ -16,6 +16,8 @@
 #define ORIGIN "https://eden-rooms-ps5.pages.dev"
 #define PORT 24879
 #define LIMIT 131072
+/* Fail closed until real PS5 config and browser transport are verified. */
+#define EDEN_BRIDGE_ALLOW_WRITE 0
 
 static int ip_ok(const char *ip) {
   struct in_addr addr;
@@ -34,7 +36,7 @@ static int match_brace(const char *s, int at, int end) {
   for (int i = at; i < end; i++) {
     if (s[i] == '"') { i = skip_string(s, i, end) - 1; if (i < 0) return -1; continue; }
     if (s[i] == '{') depth++;
-    if (s[i] == '}' && --depth == 0) return i + 1;
+    if (s[i] == '}') { depth--; if (depth == 0) return i + 1; if (depth < 0) return -1; }
   }
   return -1;
 }
@@ -193,6 +195,7 @@ static void handle_client(int fd) {
   body[len]=0;
   char ip[16]={0};int port=0;
   if(parse_body(body,ip,&port)){reply(fd,400,"{\"ok\":false,\"error\":\"invalid address or port\"}");return;}
+  if(!EDEN_BRIDGE_ALLOW_WRITE) {reply(fd,503,"{\"ok\":false,\"error\":\"write disabled pending PS5 validation\"}");return;}
   if(save_connection(ip,port)) {reply(fd,500,"{\"ok\":false,\"error\":\"config write failed\"}");return;}
   reply(fd,200,"{\"ok\":true}");
 }
