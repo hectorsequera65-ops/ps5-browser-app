@@ -206,11 +206,25 @@ static void handle_client(int fd) {
 }
 int eden_bridge_run(void) {
   int s=socket(AF_INET,SOCK_STREAM,0);
-  if(s<0) { log_msg("[EDEN BRIDGE] socket failed errno=%d\n", errno); notify("Eden Bridge: socket error"); return -1; }
+  if(s<0) {
+    log_msg("[EDEN BRIDGE] socket failed errno=%d\n",errno);
+    notify("Eden Bridge: socket error");
+    return -1;
+  }
   struct sockaddr_in a;memset(&a,0,sizeof(a));
   a.sin_family=AF_INET;a.sin_port=htons(PORT);a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
-  if(bind(s,(struct sockaddr*)&a,sizeof(a)) != 0) {\n    log_msg("[EDEN BRIDGE] bind 127.0.0.1:%d failed errno=%d\\n", PORT, errno);\n    notify("Eden Bridge: port bind failed");\n    close(s); return -1;\n  }\n  if(listen(s,4) != 0) {\n    log_msg("[EDEN BRIDGE] listen failed errno=%d\\n", errno);\n    notify("Eden Bridge: listen failed");\n    close(s); return -1;\n  }
-  log_msg("[EDEN BRIDGE] Listening on 127.0.0.1:%d\n",PORT);\n  notify("Eden Bridge listening on localhost:24879");
+  if(bind(s,(struct sockaddr*)&a,sizeof(a)) != 0) {
+    log_msg("[EDEN BRIDGE] bind failed errno=%d\n",errno);
+    notify("Eden Bridge: port bind failed");
+    close(s);return -1;
+  }
+  if(listen(s,4) != 0) {
+    log_msg("[EDEN BRIDGE] listen failed errno=%d\n",errno);
+    notify("Eden Bridge: listen failed");
+    close(s);return -1;
+  }
+  log_msg("[EDEN BRIDGE] Listening on 127.0.0.1:%d\n",PORT);
+  notify("Eden Bridge listening on localhost:24879");
   for(;;) {
     int c=accept(s,NULL,NULL);
     if(c<0){if(errno==EINTR)continue;break;}
