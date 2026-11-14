@@ -12,15 +12,15 @@ STAGING  := /tmp/ps5-browser-pkg-staging
 CACHE    := $(STAGING)/PackageFileCache
 STAGE_SC := $(CACHE)/sce_sys
 
-SRCS := src/main.c src/log.c src/notification.c src/app_installer.c src/eden_bridge.c
+SRCS := src/main.c src/log.c src/notification.c src/eden_bridge.c
 ASSETS := assets/param.json assets/icon0.png
-ELF  := build/EdenRooms-Installer.elf
+ELF  := build/EdenBridge-PS5.elf
 CFLAGS := -Os -Wall -ffunction-sections -fdata-sections $(INCLUDES)
 LDFLAGS := -Wl,--gc-sections
 
 .PHONY: all elf pkg clean
 
-all: elf pkg
+all: elf
 
 elf: $(ELF)
 
