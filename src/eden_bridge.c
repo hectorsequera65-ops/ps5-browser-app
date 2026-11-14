@@ -161,6 +161,22 @@ static int parse_body(const char *body,char *ip,int *port) {
   if(!ip_ok(ip)||p<1||p>65535)return -1;
   *port=p;return 0;
 }
+static void check_config(int fd) {
+  int file=open(CONFIG,O_RDONLY);
+  if(file<0){reply(fd,404,"{\"ok\":false,\"error\":\"config not readable\"}");return;}
+  struct stat st;
+  if(fstat(file,&st)||st.st_size<=0||st.st_size>LIMIT){close(file);reply(fd,400,"{\"ok\":false,\"error\":\"invalid config size\"}");return;}
+  size_t n=(size_t)st.st_size;char *data=malloc(n+1);
+  if(!data){close(file);reply(fd,500,"{\"ok\":false,\"error\":\"out of memory\"}");return;}
+  size_t got=0;
+  while(got<n){ssize_t r=read(file,data+got,n-got);if(r<=0){close(file);free(data);reply(fd,500,"{\"ok\":false,\"error\":\"read failed\"}");return;}got+=(size_t)r;}
+  close(file);data[n]=0;
+  char *result=NULL;size_t result_len=0;
+  int valid=replace_multiplayer(data,n,"203.0.113.10",24872,&result,&result_len)==0;
+  free(data);free(result);
+  if(!valid){reply(fd,422,"{\"ok\":false,\"error\":\"multiplayer fields not safely identified\",\"writeEnabled\":false}");return;}
+  reply(fd,200,"{\"ok\":true,\"configReadable\":true,\"multiplayerFieldsFound\":true,\"writeEnabled\":false}");
+}
 static void reply_html(int fd,const char *body) {
   char header[320];
   int n=snprintf(header,sizeof(header),"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n",strlen(body));
@@ -211,6 +227,7 @@ static void handle_client(int fd) {
   }
   if(n<=0)return;
   request[n]=0;
+  if(strncmp(request,"GET /v1/config-check HTTP/1.",28)==0) {check_config(fd);return;}
   if(strncmp(request,"GET /v1/prepare?",16)==0) {prepare_room(fd,request);return;}
   if(strncmp(request,"POST /v1/preview HTTP/1.",24)==0) {
     char *cl=strstr(request,"\r\nContent-Length:");
