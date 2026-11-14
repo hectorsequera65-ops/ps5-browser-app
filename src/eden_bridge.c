@@ -115,6 +115,55 @@ static int replace_multiplayer(char *input, size_t n, const char *ip, int port, 
   *output=result; *outn=at;
   return 0;
 }
+/* Read-only validation for all multiplayer objects, including nickname.
+   No file is changed by this helper. */
+static int check_multiplayer_nicknames(const char *input,size_t n) {
+  int found=0;
+  for(int i=0;i<(int)n;) {
+    if(input[i]!='"'){i++;continue;}
+    int k=skip_string(input,i,(int)n);
+    if(k<0)return -1;
+    if(k-i==13 && !memcmp(input+i+1,"multiplayer",11)) {
+      int j=k;
+      while(j<(int)n && space(input[j]))j++;
+      if(j<(int)n && input[j++]==':') {
+        while(j<(int)n && space(input[j]))j++;
+        if(j<(int)n && input[j]=='{') {
+          int end=match_brace(input,j,(int)n);
+          if(end<0)return -1;
+          int h1,h2,p1,p2;
+          if(find_fields(input,j+1,end-1,&h1,&h2,&p1,&p2))return -1;
+          int names=0;
+          for(int t=j+1;t<end-1;) {
+            while(t<end-1 && (space(input[t])||input[t]==','))t++;
+            if(t>=end-1)break;
+            if(input[t]!='"')return -1;
+            int e=skip_string(input,t,end-1);
+            if(e<0)return -1;
+            int is_nick=(e-t==10 && !memcmp(input+t+1,"nickname",8));
+            t=e;
+            while(t<end-1 && space(input[t]))t++;
+            if(t>=end-1 || input[t++]!=':')return -1;
+            while(t<end-1 && space(input[t]))t++;
+            if(is_nick) {
+              if(t>=end-1 || input[t]!='"')return -1;
+              names++;
+            }
+            if(t<end-1 && input[t]=='"')t=skip_string(input,t,end-1);
+            else if(t<end-1 && input[t]=='{')t=match_brace(input,t,end-1);
+            else {while(t<end-1 && input[t]!=',' && input[t]!='}')t++;}
+            if(t<0)return -1;
+          }
+          if(names!=1)return -1;
+          found++;
+          i=end;continue;
+        }
+      }
+    }
+    i=k;
+  }
+  return found;
+}
 static int write_all(int fd,const char *data,size_t n) {
   while(n) { ssize_t r=write(fd,data,n); if(r<=0)return -1; data+=r; n-=r; }
   return 0;
@@ -196,9 +245,10 @@ static void check_config(int fd) {
   close(file);data[n]=0;
   char *result=NULL;size_t result_len=0;
   int valid=replace_multiplayer(data,n,"203.0.113.10",24872,&result,&result_len)==0;
+  int nick_sections=check_multiplayer_nicknames(data,n);
   free(data);free(result);
-  if(!valid){reply(fd,422,"{\"ok\":false,\"error\":\"multiplayer fields not safely identified\",\"writeEnabled\":false}");return;}
-  reply(fd,200,"{\"ok\":true,\"configReadable\":true,\"multiplayerFieldsFound\":true,\"writeEnabled\":false}");
+  if(!valid || nick_sections<=0){reply(fd,422,"{\"ok\":false,\"error\":\"multiplayer fields not safely identified\",\"writeEnabled\":false}");return;}
+  char status[220];snprintf(status,sizeof(status),"{\"ok\":true,\"configReadable\":true,\"multiplayerFieldsFound\":true,\"nicknameFieldsFound\":true,\"multiplayerSections\":%d,\"writeEnabled\":false}",nick_sections);reply(fd,200,status);
 }
 static void reply_html(int fd,const char *body) {
   char header[320];
