@@ -428,7 +428,7 @@ static void preview_form(int fd,const char *body) {
     reply(fd,500,"{\"ok\":false,\"error\":\"config not saved; check backup or config structure\"}");return;
   }
   notify("Eden Bridge: %s - sala %s:%d guardada",nick,ip,port);
-  reply_html(fd,"<!doctype html><html lang=\"es\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><body style=\"font:18px system-ui;padding:24px;background:#101b2c;color:white\"><h2>Sala guardada en PS5</h2><p>IP, puerto y apodo actualizados en ProsperoEden. Ya podes abrir el emulador.</p></body></html>");
+  reply_html(fd,"<!doctype html><html lang=\"es\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"2;url=https://eden-rooms.pages.dev/\"><body style=\"font:18px system-ui;padding:24px;background:#101b2c;color:white\"><h2>Sala guardada en PS5</h2><p>IP, puerto y apodo actualizados. Volviendo a Eden Rooms...</p><p><a style=\"color:#8ed9ff\" href=\"https://eden-rooms.pages.dev/\">Volver ahora</a></p></body></html>");
 }
 static void handle_client(int fd) {
   char request[4096+1];int n=0;
