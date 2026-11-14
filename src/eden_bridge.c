@@ -265,7 +265,7 @@ static int save_connection(const char *ip,int port,const char *nick) {
   const char *tmp=CONFIG ".edenrooms.tmp";
   int t=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,st.st_mode&0777);
   if(t<0){free(updated);return -1;}
-  ok=write_all(t,updated,updated_len);
+  int ok=write_all(t,updated,updated_len);
   if(fsync(t))ok=-1;
   if(close(t))ok=-1;
   if(ok){unlink(tmp);free(updated);return -1;}
