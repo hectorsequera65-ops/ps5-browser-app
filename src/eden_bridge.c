@@ -200,7 +200,12 @@ static void handle_client(int fd) {
   body[len]=0;
   char ip[16]={0};int port=0;
   if(parse_body(body,ip,&port)){reply(fd,400,"{\"ok\":false,\"error\":\"invalid address or port\"}");return;}
-  if(!EDEN_BRIDGE_ALLOW_WRITE) {reply(fd,503,"{\"ok\":false,\"error\":\"write disabled pending PS5 validation\"}");return;}
+  if(!EDEN_BRIDGE_ALLOW_WRITE) {
+    log_msg("[EDEN BRIDGE] Preview received: %s:%d (no configuration changes)\n",ip,port);
+    notify("Eden Bridge prueba: sala %s:%d recibida",ip,port);
+    reply(fd,200,"{\"ok\":true,\"received\":true,\"saved\":false,\"mode\":\"preview\"}");
+    return;
+  }
   if(save_connection(ip,port)) {reply(fd,500,"{\"ok\":false,\"error\":\"config write failed\"}");return;}
   reply(fd,200,"{\"ok\":true}");
 }
