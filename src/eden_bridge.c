@@ -214,6 +214,13 @@ static int parse_room_query(const char *request,char *ip,int *port) {
 }
 static void prepare_room(int fd,const char *request) {
   char ip[16]={0};int port=0;
+  char nick[25]={0};
+  const char *q=strstr(request,"&nick=");
+  if(q) {
+    q+=6;int i=0;
+    while(i<24 && ((q[i]>='A'&&q[i]<='Z')||(q[i]>='a'&&q[i]<='z')||(q[i]>='0'&&q[i]<='9')||q[i]=='_'||q[i]=='-')) {nick[i]=q[i];i++;}
+    if(i==0 || (q[i]!=' ' && q[i]!='&' && q[i]!='\0')) {reply(fd,400,"{\"ok\":false,\"error\":\"invalid nickname\"}");return;}
+  }
   if(parse_room_query(request,ip,&port)) {
     reply(fd,400,"{\"ok\":false,\"error\":\"invalid room\"}");return;
   }
@@ -225,8 +232,8 @@ static void prepare_room(int fd,const char *request) {
     "p{line-height:1.6}</style><h2>Eden Bridge PS5</h2><p>Sala: <b>%s:%d</b></p>"
     "<p>Confirmar solo la recepcion de prueba. No se modificara ProsperoEden.</p>"
     "<form method=\"POST\" action=\"/v1/preview\">"
-    "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"\n    "<label for=\"nick\">Apodo multijugador (prueba)</label><input id=\"nick\" name=\"nick\" maxlength=\"24\" pattern=\"[A-Za-z0-9_-]{1,24}\" placeholder=\"Skifrayer\" required style=\"display:block;padding:12px;margin:12px 0;width:90%%\">"
-    "<button type=\"submit\">Enviar sala a PS5</button></form></html>",ip,port,ip,port);
+    "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"\n    "<label for=\"nick\">Apodo multijugador (prueba)</label><input id=\"nick\" name=\"nick\" maxlength=\"24\" pattern=\"[A-Za-z0-9_-]{1,24}\" placeholder=\"Skifrayer\" value=\"%s\" required style=\"display:block;padding:12px;margin:12px 0;width:90%%\">"
+    "<button type=\"submit\">Enviar sala a PS5</button></form></html>",ip,port,ip,port,nick);
   reply_html(fd,page);
 }
 static void preview_form(int fd,const char *body) {
