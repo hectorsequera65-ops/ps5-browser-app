@@ -164,6 +164,70 @@ static int check_multiplayer_nicknames(const char *input,size_t n) {
   }
   return found;
 }
+/* Construct a complete in-memory preview of nickname edits; never write it. */
+static int preview_nickname_edits(const char *input,size_t n,const char *nick,
+                                  char **output,size_t *outn,int *sections) {
+  struct edit edits[32];int count=0;
+  for(int i=0;i<(int)n;) {
+    if(input[i]!='"'){i++;continue;}
+    int k=skip_string(input,i,(int)n);
+    if(k<0)return -1;
+    if(k-i==13 && !memcmp(input+i+1,"multiplayer",11)) {
+      int j=k;
+      while(j<(int)n && space(input[j]))j++;
+      if(j<(int)n && input[j++]==':') {
+        while(j<(int)n && space(input[j]))j++;
+        if(j<(int)n && input[j]=='{') {
+          int end=match_brace(input,j,(int)n);
+          if(end<0)return -1;
+          int matches=0;
+          for(int t=j+1;t<end-1;) {
+            while(t<end-1 && (space(input[t])||input[t]==','))t++;
+            if(t>=end-1)break;
+            if(input[t]!='"')return -1;
+            int e=skip_string(input,t,end-1);
+            if(e<0)return -1;
+            int is_nick=(e-t==10 && !memcmp(input+t+1,"nickname",8));
+            t=e;
+            while(t<end-1 && space(input[t]))t++;
+            if(t>=end-1 || input[t++]!=':')return -1;
+            while(t<end-1 && space(input[t]))t++;
+            int v1=t;
+            if(t<end-1 && input[t]=='"')t=skip_string(input,t,end-1);
+            else if(t<end-1 && input[t]=='{')t=match_brace(input,t,end-1);
+            else {while(t<end-1 && input[t]!=',' && input[t]!='}')t++;}
+            if(t<0)return -1;
+            if(is_nick) {
+              if(input[v1]!='"'||matches++||count>=32)return -1;
+              edits[count].start=v1;edits[count].end=t;
+              snprintf(edits[count].value,sizeof(edits[count].value),"\"%s\"",nick);
+              count++;
+            }
+          }
+          if(matches!=1)return -1;
+          i=end;continue;
+        }
+      }
+    }
+    i=k;
+  }
+  if(!count)return -1;
+  size_t capacity=n+(size_t)count*64+1;
+  char *result=malloc(capacity);
+  if(!result)return -1;
+  size_t at=0,last=0;
+  for(int e=0;e<count;e++) {
+    if(edits[e].start<(int)last){free(result);return -1;}
+    size_t before=(size_t)edits[e].start-last;
+    memcpy(result+at,input+last,before);at+=before;
+    size_t len=strlen(edits[e].value);
+    memcpy(result+at,edits[e].value,len);at+=len;
+    last=(size_t)edits[e].end;
+  }
+  memcpy(result+at,input+last,n-last);at+=n-last;result[at]=0;
+  *output=result;*outn=at;*sections=count;
+  return 0;
+}
 static int write_all(int fd,const char *data,size_t n) {
   while(n) { ssize_t r=write(fd,data,n); if(r<=0)return -1; data+=r; n-=r; }
   return 0;
@@ -246,8 +310,11 @@ static void check_config(int fd) {
   char *result=NULL;size_t result_len=0;
   int valid=replace_multiplayer(data,n,"203.0.113.10",24872,&result,&result_len)==0;
   int nick_sections=check_multiplayer_nicknames(data,n);
+  char *nickname_preview=NULL;size_t nickname_len=0;int preview_sections=0;
+  int nick_preview_ok=preview_nickname_edits(data,n,"Skifrayer",&nickname_preview,&nickname_len,&preview_sections)==0;
+  free(nickname_preview);
   free(data);free(result);
-  if(!valid || nick_sections<=0){reply(fd,422,"{\"ok\":false,\"error\":\"multiplayer fields not safely identified\",\"writeEnabled\":false}");return;}
+  if(!valid || nick_sections<=0 || !nick_preview_ok || preview_sections!=nick_sections){reply(fd,422,"{\"ok\":false,\"error\":\"multiplayer fields not safely identified\",\"writeEnabled\":false}");return;}
   char status[220];snprintf(status,sizeof(status),"{\"ok\":true,\"configReadable\":true,\"multiplayerFieldsFound\":true,\"nicknameFieldsFound\":true,\"multiplayerSections\":%d,\"writeEnabled\":false}",nick_sections);reply(fd,200,status);
 }
 static void reply_html(int fd,const char *body) {
