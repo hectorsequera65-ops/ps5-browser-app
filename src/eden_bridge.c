@@ -251,12 +251,17 @@ static int save_connection(const char *ip,int port,const char *nick) {
   /* Backup original before replacing the configuration. */
   const char *bak=CONFIG ".edenrooms.bak";
   /* Never overwrite an existing recovery backup. */
+  /* Keep the first recovery backup across subsequent room changes. */
   int b=open(bak,O_WRONLY|O_CREAT|O_EXCL,0600);
-  if(b<0){free(original);free(updated);return -1;}
-  int ok=write_all(b,original,n);if(fsync(b))ok=-1;
-  if(close(b))ok=-1;
+  if(b>=0) {
+    int ok=write_all(b,original,n);
+    if(fsync(b))ok=-1;
+    if(close(b))ok=-1;
+    if(ok){unlink(bak);free(original);free(updated);return -1;}
+  } else if(errno!=EEXIST) {
+    free(original);free(updated);return -1;
+  }
   free(original);
-  if(ok){unlink(bak);free(updated);return -1;}
   const char *tmp=CONFIG ".edenrooms.tmp";
   int t=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,st.st_mode&0777);
   if(t<0){free(updated);return -1;}
@@ -440,7 +445,7 @@ static void handle_client(int fd) {
   body[len]=0;
   char ip[16]={0};int port=0;
   if(parse_body(body,ip,&port)){reply(fd,400,"{\"ok\":false,\"error\":\"invalid address or port\"}");return;}
-  if(1) {
+  if(!EDEN_BRIDGE_ALLOW_WRITE || 1) {
     log_msg("[EDEN BRIDGE] Preview received: %s:%d (no configuration changes)\n",ip,port);
     notify("Eden Bridge prueba: sala %s:%d recibida",ip,port);
     reply(fd,200,"{\"ok\":true,\"received\":true,\"saved\":false,\"mode\":\"preview\"}");
