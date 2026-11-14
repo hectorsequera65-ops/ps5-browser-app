@@ -1,4 +1,4 @@
-name: Build Eden Rooms PS5 installer
+name: Build Eden Bridge PS5
 
 on:
   workflow_dispatch:
@@ -21,15 +21,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Build toolchain container
         run: docker build -t eden-rooms-ps5-builder .
-      - name: Build ELF and PKG
+      - name: Build Eden Bridge ELF
         run: |
           docker run --rm --user root -v "$GITHUB_WORKSPACE:/workspace" -w /workspace eden-rooms-ps5-builder make all
           ls -lh build/
-      - name: Upload installers
+      - name: Upload bridge payload
         uses: actions/upload-artifact@v4
         with:
-          name: EdenRooms-PS5-installers
+          name: EdenBridge-PS5
           path: |
             build/*.elf
-            build/*.pkg
           if-no-files-found: error
