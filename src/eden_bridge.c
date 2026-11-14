@@ -232,7 +232,8 @@ static void prepare_room(int fd,const char *request) {
     "p{line-height:1.6}</style><h2>Eden Bridge PS5</h2><p>Sala: <b>%s:%d</b></p>"
     "<p>Confirmar solo la recepcion de prueba. No se modificara ProsperoEden.</p>"
     "<form method=\"POST\" action=\"/v1/preview\">"
-    "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"\n    "<label for=\"nick\">Apodo multijugador (prueba)</label><input id=\"nick\" name=\"nick\" maxlength=\"24\" pattern=\"[A-Za-z0-9_-]{1,24}\" placeholder=\"Skifrayer\" value=\"%s\" required style=\"display:block;padding:12px;margin:12px 0;width:90%%\">"
+    "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"
+    "<label for=\"nick\">Apodo multijugador (prueba)</label><input id=\"nick\" name=\"nick\" maxlength=\"24\" pattern=\"[A-Za-z0-9_-]{1,24}\" placeholder=\"Skifrayer\" value=\"%s\" required style=\"display:block;padding:12px;margin:12px 0;width:90%%\">"
     "<button type=\"submit\">Enviar sala a PS5</button></form></html>",ip,port,ip,port,nick);
   reply_html(fd,page);
 }
