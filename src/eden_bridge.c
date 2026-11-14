@@ -225,7 +225,7 @@ static void prepare_room(int fd,const char *request) {
     "p{line-height:1.6}</style><h2>Eden Bridge PS5</h2><p>Sala: <b>%s:%d</b></p>"
     "<p>Confirmar solo la recepcion de prueba. No se modificara ProsperoEden.</p>"
     "<form method=\"POST\" action=\"/v1/preview\">"
-    "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"
+    "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"\n    "<label for=\"nick\">Apodo multijugador (prueba)</label><input id=\"nick\" name=\"nick\" maxlength=\"24\" pattern=\"[A-Za-z0-9_-]{1,24}\" placeholder=\"Skifrayer\" required style=\"display:block;padding:12px;margin:12px 0;width:90%%\">"
     "<button type=\"submit\">Enviar sala a PS5</button></form></html>",ip,port,ip,port);
   reply_html(fd,page);
 }
@@ -235,7 +235,17 @@ static void preview_form(int fd,const char *body) {
      !ip_ok(ip)||port<1||port>65535) {
     reply(fd,400,"{\"ok\":false,\"error\":\"invalid room\"}");return;
   }
-  notify("Eden Bridge prueba: sala %s:%d recibida",ip,port);
+  char nick[25]={0};
+  const char *p=strstr(body,"&nick=");
+  if(!p){reply(fd,400,"{\"ok\":false,\"error\":\"nickname required\"}");return;}
+  p+=6;int i=0;
+  while(p[i] && p[i]!='&' && i<24) {
+    char c=p[i];
+    if(!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='_'||c=='-'))break;
+    nick[i]=c;i++;
+  }
+  if(i==0 || (p[i] && p[i]!='&')){reply(fd,400,"{\"ok\":false,\"error\":\"invalid nickname\"}");return;}
+  notify("Eden Bridge prueba: %s - sala %s:%d recibida",nick,ip,port);
   reply_html(fd,"<!doctype html><html lang=\"es\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><body style=\"font:18px system-ui;padding:24px;background:#101b2c;color:white\"><h2>Sala recibida en PS5</h2><p>Prueba completada. No se modifico la configuracion de ProsperoEden.</p></body></html>");
 }
 static void handle_client(int fd) {
