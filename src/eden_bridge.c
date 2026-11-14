@@ -19,6 +19,49 @@
 /* Fail closed until real PS5 config and browser transport are verified. */
 #define EDEN_BRIDGE_ALLOW_WRITE 1
 
+/* Resolve PS5 LAN IP from the selected outbound network route (no packet sent). */
+static int current_lan_ip(char out[16]) {
+  int fd=socket(AF_INET,SOCK_DGRAM,0);
+  if(fd<0)return -1;
+  struct sockaddr_in dst;memset(&dst,0,sizeof(dst));
+  dst.sin_family=AF_INET;dst.sin_port=htons(53);
+  inet_pton(AF_INET,"1.1.1.1",&dst.sin_addr);
+  if(connect(fd,(struct sockaddr*)&dst,sizeof(dst))!=0){close(fd);return -1;}
+  struct sockaddr_in local;socklen_t n=sizeof(local);
+  int result=getsockname(fd,(struct sockaddr*)&local,&n);
+  close(fd);
+  return result==0 && inet_ntop(AF_INET,&local.sin_addr,out,16) ? 0:-1;
+}
+/* Accept POST only from a browser on the PS5's actual local address.
+   Check full Origin and Host header values, not substrings. */
+static int same_origin_request(int fd,const char *request) {
+  struct sockaddr_in local;socklen_t n=sizeof(local);
+  char ip[16],expected_origin[64],expected_host[48];
+  if(getsockname(fd,(struct sockaddr*)&local,&n)!=0 ||
+     local.sin_family!=AF_INET ||
+     !inet_ntop(AF_INET,&local.sin_addr,ip,sizeof(ip)))return 0;
+  snprintf(expected_origin,sizeof(expected_origin),"http://%s:%d",ip,PORT);
+  snprintf(expected_host,sizeof(expected_host),"%s:%d",ip,PORT);
+  int origin_ok=0,host_ok=0;
+  const char *p=strstr(request,"\r\n");
+  while(p && p[2]!='\r') {
+    p+=2;
+    const char *end=strstr(p,"\r\n");
+    if(!end)break;
+    const char *colon=memchr(p,':',(size_t)(end-p));
+    if(colon) {
+      const char *v=colon+1;
+      while(v<end && (*v==' '||*v=='\t'))v++;
+      size_t k=(size_t)(colon-p),l=(size_t)(end-v);
+      if(k==6 && !strncasecmp(p,"Origin",6) &&
+         l==strlen(expected_origin) && !memcmp(v,expected_origin,l))origin_ok=1;
+      if(k==4 && !strncasecmp(p,"Host",4) &&
+         l==strlen(expected_host) && !memcmp(v,expected_host,l))host_ok=1;
+    }
+    p=end;
+  }
+  return origin_ok && host_ok;
+}
 static int ip_ok(const char *ip) {
   struct in_addr addr;
   return inet_pton(AF_INET, ip, &addr) == 1 && strlen(ip) < 16;
@@ -402,9 +445,8 @@ static void handle_client(int fd) {
   if(strncmp(request,"GET /v1/config-check HTTP/1.",28)==0) {check_config(fd);return;}
   if(strncmp(request,"GET /v1/prepare?",16)==0) {prepare_room(fd,request);return;}
   if(strncmp(request,"POST /v1/preview HTTP/1.",24)==0) {
-    /* Require same-origin confirmation before changing configuration. */
-    if(!strstr(request,"\r\nOrigin: http://192.168.7.99:24879\r\n") &&
-       !strstr(request,"\r\norigin: http://192.168.7.99:24879\r\n")) {
+    /* Check the actual IP of the accepted connection, even after DHCP changes. */
+    if(!same_origin_request(fd,request)) {
       reply(fd,403,"{\"ok\":false,\"error\":\"origin denied\"}");return;
     }
     char *cl=strstr(request,"\r\nContent-Length:");
@@ -477,7 +519,13 @@ int eden_bridge_run(void) {
     close(s);return -1;
   }
   log_msg("[EDEN BRIDGE] Listening on LAN port %d\n",PORT);
-  notify("Eden Bridge LAN test on port 24879");
+  char lan_ip[16]={0};
+  if(current_lan_ip(lan_ip)==0) {
+    log_msg("[EDEN BRIDGE] PS5 IP: %s, port %d\n",lan_ip,PORT);
+    notify("Eden Bridge PS5: http://%s:%d",lan_ip,PORT);
+  } else {
+    notify("Eden Bridge iniciado: puerto %d (IP no detectada)",PORT);
+  }
   for(;;) {
     int c=accept(s,NULL,NULL);
     if(c<0){if(errno==EINTR)continue;break;}
