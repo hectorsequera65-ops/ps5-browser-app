@@ -404,6 +404,11 @@ static void handle_client(int fd) {
   if(strncmp(request,"GET /v1/config-check HTTP/1.",28)==0) {check_config(fd);return;}
   if(strncmp(request,"GET /v1/prepare?",16)==0) {prepare_room(fd,request);return;}
   if(strncmp(request,"POST /v1/preview HTTP/1.",24)==0) {
+    /* Require same-origin confirmation before changing configuration. */
+    if(!strstr(request,"\r\nOrigin: http://192.168.7.99:24879\r\n") &&
+       !strstr(request,"\r\norigin: http://192.168.7.99:24879\r\n")) {
+      reply(fd,403,"{\"ok\":false,\"error\":\"origin denied\"}");return;
+    }
     char *cl=strstr(request,"\r\nContent-Length:");
     if(!cl)cl=strstr(request,"\r\ncontent-length:");
     char *sep=strstr(request,"\r\n\r\n");
