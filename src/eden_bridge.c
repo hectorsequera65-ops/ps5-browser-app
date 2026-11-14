@@ -212,7 +212,7 @@ int eden_bridge_run(void) {
     return -1;
   }
   struct sockaddr_in a;memset(&a,0,sizeof(a));
-  a.sin_family=AF_INET;a.sin_port=htons(PORT);a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
+  a.sin_family=AF_INET;a.sin_port=htons(PORT);a.sin_addr.s_addr=htonl(INADDR_ANY);
   if(bind(s,(struct sockaddr*)&a,sizeof(a)) != 0) {
     log_msg("[EDEN BRIDGE] bind failed errno=%d\n",errno);
     notify("Eden Bridge: port bind failed");
@@ -223,8 +223,8 @@ int eden_bridge_run(void) {
     notify("Eden Bridge: listen failed");
     close(s);return -1;
   }
-  log_msg("[EDEN BRIDGE] Listening on 127.0.0.1:%d\n",PORT);
-  notify("Eden Bridge listening on localhost:24879");
+  log_msg("[EDEN BRIDGE] Listening on LAN port %d\n",PORT);
+  notify("Eden Bridge LAN test on port 24879");
   for(;;) {
     int c=accept(s,NULL,NULL);
     if(c<0){if(errno==EINTR)continue;break;}
