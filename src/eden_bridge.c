@@ -240,8 +240,8 @@ static void prepare_room(int fd,const char *request) {
 }
 static void preview_form(int fd,const char *body) {
   char ip[16]={0};int port=0;char tail=0;
-  if(sscanf(body,"host=%15[0-9.]&port=%d%c",ip,&port,&tail)!=2 ||
-     !ip_ok(ip)||port<1||port>65535) {
+  if(sscanf(body,"host=%15[0-9.]&port=%d%c",ip,&port,&tail)!=3 ||
+     tail!='&'||!ip_ok(ip)||port<1||port>65535) {
     reply(fd,400,"{\"ok\":false,\"error\":\"invalid room\"}");return;
   }
   char nick[25]={0};
