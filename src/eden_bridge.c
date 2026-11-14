@@ -17,7 +17,7 @@
 #define PORT 24879
 #define LIMIT 131072
 /* Fail closed until real PS5 config and browser transport are verified. */
-#define EDEN_BRIDGE_ALLOW_WRITE 0
+#define EDEN_BRIDGE_ALLOW_WRITE 1
 
 static int ip_ok(const char *ip) {
   struct in_addr addr;
@@ -232,7 +232,7 @@ static int write_all(int fd,const char *data,size_t n) {
   while(n) { ssize_t r=write(fd,data,n); if(r<=0)return -1; data+=r; n-=r; }
   return 0;
 }
-static int save_connection(const char *ip,int port) {
+static int save_connection(const char *ip,int port,const char *nick) {
   int fd=open(CONFIG,O_RDONLY); if(fd<0)return -1;
   struct stat st;
   if(fstat(fd,&st)||st.st_size<=0||st.st_size>LIMIT) {close(fd);return -1;}
@@ -243,6 +243,11 @@ static int save_connection(const char *ip,int port) {
   close(fd);original[n]=0;
   char *updated=NULL;size_t updated_len=0;
   if(replace_multiplayer(original,n,ip,port,&updated,&updated_len)){free(original);return -1;}
+  char *nick_updated=NULL;size_t nick_len=0;int sections=0;
+  if(preview_nickname_edits(updated,updated_len,nick,&nick_updated,&nick_len,&sections) || sections!=2) {
+    free(original);free(updated);free(nick_updated);return -1;
+  }
+  free(updated);updated=nick_updated;updated_len=nick_len;
   /* Backup original before replacing the configuration. */
   const char *bak=CONFIG ".edenrooms.bak";
   /* Never overwrite an existing recovery backup. */
@@ -315,7 +320,7 @@ static void check_config(int fd) {
   free(nickname_preview);
   free(data);free(result);
   if(!valid || nick_sections<=0 || !nick_preview_ok || preview_sections!=nick_sections){reply(fd,422,"{\"ok\":false,\"error\":\"multiplayer fields not safely identified\",\"writeEnabled\":false}");return;}
-  char status[220];snprintf(status,sizeof(status),"{\"ok\":true,\"configReadable\":true,\"multiplayerFieldsFound\":true,\"nicknameFieldsFound\":true,\"multiplayerSections\":%d,\"writeEnabled\":false}",nick_sections);reply(fd,200,status);
+  char status[220];snprintf(status,sizeof(status),"{\"ok\":true,\"configReadable\":true,\"multiplayerFieldsFound\":true,\"nicknameFieldsFound\":true,\"multiplayerSections\":%d,\"writeEnabled\":true}",nick_sections);reply(fd,200,status);
 }
 static void reply_html(int fd,const char *body) {
   char header[320];
@@ -348,11 +353,12 @@ static void prepare_room(int fd,const char *request) {
     "<title>Eden Bridge PS5</title><style>body{font:16px system-ui;background:#101b2c;color:white;max-width:460px;margin:12vh auto;padding:22px}"
     "button{padding:15px;border:0;border-radius:10px;background:#3b82f6;color:white;font-size:16px;width:100%%}"
     "p{line-height:1.6}</style><h2>Eden Bridge PS5</h2><p>Sala: <b>%s:%d</b></p>"
-    "<p>Confirmar solo la recepcion de prueba. No se modificara ProsperoEden.</p>"
+    "<p>Cerra ProsperoEden antes de continuar. Se guardara una copia de seguridad y se actualizaran IP, puerto y apodo.</p>"
     "<form method=\"POST\" action=\"/v1/preview\">"
     "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"
     "<label for=\"nick\">Apodo multijugador (prueba)</label><input id=\"nick\" name=\"nick\" maxlength=\"24\" pattern=\"[A-Za-z0-9_-]{1,24}\" placeholder=\"Skifrayer\" value=\"%s\" required style=\"display:block;padding:12px;margin:12px 0;width:90%%\">"
-    "<button type=\"submit\">Enviar sala a PS5</button></form></html>",ip,port,ip,port,nick);
+    "<label><input type=\"checkbox\" name=\"closed\" value=\"yes\" required> Confirmo que ProsperoEden esta cerrado</label>"
+    "<button type=\"submit\">Guardar sala en PS5</button></form></html>",ip,port,ip,port,nick);
   reply_html(fd,page);
 }
 static void preview_form(int fd,const char *body) {
@@ -371,8 +377,12 @@ static void preview_form(int fd,const char *body) {
     nick[i]=c;i++;
   }
   if(i==0 || (p[i] && p[i]!='&')){reply(fd,400,"{\"ok\":false,\"error\":\"invalid nickname\"}");return;}
-  notify("Eden Bridge prueba: %s - sala %s:%d recibida",nick,ip,port);
-  reply_html(fd,"<!doctype html><html lang=\"es\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><body style=\"font:18px system-ui;padding:24px;background:#101b2c;color:white\"><h2>Sala recibida en PS5</h2><p>Prueba completada. No se modifico la configuracion de ProsperoEden.</p></body></html>");
+  if(!strstr(body,"&closed=yes")) {reply(fd,400,"{\"ok\":false,\"error\":\"close ProsperoEden first\"}");return;}
+  if(save_connection(ip,port,nick)) {
+    reply(fd,500,"{\"ok\":false,\"error\":\"config not saved; check backup or config structure\"}");return;
+  }
+  notify("Eden Bridge: %s - sala %s:%d guardada",nick,ip,port);
+  reply_html(fd,"<!doctype html><html lang=\"es\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><body style=\"font:18px system-ui;padding:24px;background:#101b2c;color:white\"><h2>Sala guardada en PS5</h2><p>IP, puerto y apodo actualizados en ProsperoEden. Ya podes abrir el emulador.</p></body></html>");
 }
 static void handle_client(int fd) {
   char request[4096+1];int n=0;
@@ -430,13 +440,13 @@ static void handle_client(int fd) {
   body[len]=0;
   char ip[16]={0};int port=0;
   if(parse_body(body,ip,&port)){reply(fd,400,"{\"ok\":false,\"error\":\"invalid address or port\"}");return;}
-  if(!EDEN_BRIDGE_ALLOW_WRITE) {
+  if(1) {
     log_msg("[EDEN BRIDGE] Preview received: %s:%d (no configuration changes)\n",ip,port);
     notify("Eden Bridge prueba: sala %s:%d recibida",ip,port);
     reply(fd,200,"{\"ok\":true,\"received\":true,\"saved\":false,\"mode\":\"preview\"}");
     return;
   }
-  if(save_connection(ip,port)) {reply(fd,500,"{\"ok\":false,\"error\":\"config write failed\"}");return;}
+  if(save_connection(ip,port,"Skifrayer")) {reply(fd,500,"{\"ok\":false,\"error\":\"config write failed\"}");return;}
   reply(fd,200,"{\"ok\":true}");
 }
 int eden_bridge_run(void) {
