@@ -161,6 +161,44 @@ static int parse_body(const char *body,char *ip,int *port) {
   if(!ip_ok(ip)||p<1||p>65535)return -1;
   *port=p;return 0;
 }
+static void reply_html(int fd,const char *body) {
+  char header[320];
+  int n=snprintf(header,sizeof(header),"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n",strlen(body));
+  write_all(fd,header,(size_t)n);write_all(fd,body,strlen(body));
+}
+static int parse_room_query(const char *request,char *ip,int *port) {
+  char path[256]={0};int p=0;char tail=0;
+  if(sscanf(request,"GET %255s HTTP/1.",path)!=1)return -1;
+  if(sscanf(path,"/v1/prepare?host=%15[0-9.]&port=%d%c",ip,&p,&tail)!=2)return -1;
+  if(!ip_ok(ip)||p<1||p>65535)return -1;
+  *port=p;return 0;
+}
+static void prepare_room(int fd,const char *request) {
+  char ip[16]={0};int port=0;
+  if(parse_room_query(request,ip,&port)) {
+    reply(fd,400,"{\"ok\":false,\"error\":\"invalid room\"}");return;
+  }
+  char page[2200];
+  snprintf(page,sizeof(page),
+    "<!doctype html><html lang=\"es\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+    "<title>Eden Bridge PS5</title><style>body{font:16px system-ui;background:#101b2c;color:white;max-width:460px;margin:12vh auto;padding:22px}"
+    "button{padding:15px;border:0;border-radius:10px;background:#3b82f6;color:white;font-size:16px;width:100%%}"
+    "p{line-height:1.6}</style><h2>Eden Bridge PS5</h2><p>Sala: <b>%s:%d</b></p>"
+    "<p>Confirmar solo la recepcion de prueba. No se modificara ProsperoEden.</p>"
+    "<form method=\"POST\" action=\"/v1/preview\">"
+    "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"
+    "<button type=\"submit\">Enviar sala a PS5</button></form></html>",ip,port,ip,port);
+  reply_html(fd,page);
+}
+static void preview_form(int fd,const char *body) {
+  char ip[16]={0};int port=0;char tail=0;
+  if(sscanf(body,"host=%15[0-9.]&port=%d%c",ip,&port,&tail)!=2 ||
+     !ip_ok(ip)||port<1||port>65535) {
+    reply(fd,400,"{\"ok\":false,\"error\":\"invalid room\"}");return;
+  }
+  notify("Eden Bridge prueba: sala %s:%d recibida",ip,port);
+  reply_html(fd,"<!doctype html><html lang=\"es\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><body style=\"font:18px system-ui;padding:24px;background:#101b2c;color:white\"><h2>Sala recibida en PS5</h2><p>Prueba completada. No se modifico la configuracion de ProsperoEden.</p></body></html>");
+}
 static void handle_client(int fd) {
   char request[4096+1];int n=0;
   struct timeval tv={3,0};
@@ -173,6 +211,22 @@ static void handle_client(int fd) {
   }
   if(n<=0)return;
   request[n]=0;
+  if(strncmp(request,"GET /v1/prepare?",16)==0) {prepare_room(fd,request);return;}
+  if(strncmp(request,"POST /v1/preview HTTP/1.",24)==0) {
+    char *cl=strstr(request,"\r\nContent-Length:");
+    if(!cl)cl=strstr(request,"\r\ncontent-length:");
+    char *sep=strstr(request,"\r\n\r\n");
+    if(!cl||!sep){reply(fd,400,"{\"ok\":false,\"error\":\"missing body\"}");return;}
+    long len=strtol(strchr(cl,':')+1,NULL,10);
+    if(len<=0||len>128){reply(fd,400,"{\"ok\":false,\"error\":\"invalid length\"}");return;}
+    char *body=sep+4;size_t have=(size_t)(request+n-body);
+    while(have<(size_t)len) {
+      ssize_t r=recv(fd,body+have,(size_t)len-have,0);
+      if(r<=0){reply(fd,400,"{\"ok\":false,\"error\":\"incomplete body\"}");return;}
+      have+=(size_t)r;
+    }
+    body[len]=0;preview_form(fd,body);return;
+  }
   /* Read-only probe: never touches ProsperoEden's configuration. */
   if(strncmp(request,"GET /v1/health HTTP/1.",22)==0) {
     reply(fd,200,"{\"ok\":true,\"service\":\"eden-bridge\",\"writeEnabled\":false}");
