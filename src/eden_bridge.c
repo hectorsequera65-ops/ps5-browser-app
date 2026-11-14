@@ -142,15 +142,29 @@ static int save_connection(const char *ip,int port) {
   const char *tmp=CONFIG ".edenrooms.tmp";
   int t=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,st.st_mode&0777);
   if(t<0){free(updated);return -1;}
-  ok=write_all(t,updated,updated_len);if(fsync(t))ok=-1;close(t);free(updated);
-  if(ok){unlink(tmp);return -1;}
-  if(rename(tmp,CONFIG)){unlink(tmp);return -1;}
-  /* Read back and verify the exact bytes that were committed. */
-  int verify=open(CONFIG,O_RDONLY);
-  if(verify<0)return -1;
+  ok=write_all(t,updated,updated_len);
+  if(fsync(t))ok=-1;
+  if(close(t))ok=-1;
+  if(ok){unlink(tmp);free(updated);return -1;}
+  /* Verify the entire temporary file BEFORE replacing the real config. */
+  int verify=open(tmp,O_RDONLY);
+  if(verify<0){unlink(tmp);free(updated);return -1;}
   struct stat vst;
-  if(fstat(verify,&vst)||vst.st_size!=(off_t)updated_len){close(verify);return -1;}
-  close(verify);
+  if(fstat(verify,&vst)||vst.st_size!=(off_t)updated_len)ok=-1;
+  char chunk[4096];
+  size_t pos=0;
+  while(!ok && pos<updated_len) {
+    size_t want=updated_len-pos;
+    if(want>sizeof(chunk))want=sizeof(chunk);
+    ssize_t r=read(verify,chunk,want);
+    if(r<=0 || memcmp(chunk,updated+pos,(size_t)r)!=0){ok=-1;break;}
+    pos+=(size_t)r;
+  }
+  if(close(verify))ok=-1;
+  if(ok || pos!=updated_len){unlink(tmp);free(updated);return -1;}
+  /* Rename only after byte-for-byte verification. */
+  if(rename(tmp,CONFIG)){unlink(tmp);free(updated);return -1;}
+  free(updated);
   return 0;
 }
 static void reply(int fd,int status,const char *body) {
