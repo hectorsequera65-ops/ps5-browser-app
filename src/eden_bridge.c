@@ -132,16 +132,25 @@ static int save_connection(const char *ip,int port) {
   if(replace_multiplayer(original,n,ip,port,&updated,&updated_len)){free(original);return -1;}
   /* Backup original before replacing the configuration. */
   const char *bak=CONFIG ".edenrooms.bak";
-  int b=open(bak,O_WRONLY|O_CREAT|O_TRUNC,0600);
+  /* Never overwrite an existing recovery backup. */
+  int b=open(bak,O_WRONLY|O_CREAT|O_EXCL,0600);
   if(b<0){free(original);free(updated);return -1;}
-  int ok=write_all(b,original,n);if(fsync(b))ok=-1;close(b);free(original);
-  if(ok){free(updated);return -1;}
+  int ok=write_all(b,original,n);if(fsync(b))ok=-1;
+  if(close(b))ok=-1;
+  free(original);
+  if(ok){unlink(bak);free(updated);return -1;}
   const char *tmp=CONFIG ".edenrooms.tmp";
   int t=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,st.st_mode&0777);
   if(t<0){free(updated);return -1;}
   ok=write_all(t,updated,updated_len);if(fsync(t))ok=-1;close(t);free(updated);
   if(ok){unlink(tmp);return -1;}
   if(rename(tmp,CONFIG)){unlink(tmp);return -1;}
+  /* Read back and verify the exact bytes that were committed. */
+  int verify=open(CONFIG,O_RDONLY);
+  if(verify<0)return -1;
+  struct stat vst;
+  if(fstat(verify,&vst)||vst.st_size!=(off_t)updated_len){close(verify);return -1;}
+  close(verify);
   return 0;
 }
 static void reply(int fd,int status,const char *body) {
