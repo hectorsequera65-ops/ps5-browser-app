@@ -358,11 +358,10 @@ static void prepare_room(int fd,const char *request) {
     "<title>Eden Bridge PS5</title><style>body{font:16px system-ui;background:#101b2c;color:white;max-width:460px;margin:12vh auto;padding:22px}"
     "button{padding:15px;border:0;border-radius:10px;background:#3b82f6;color:white;font-size:16px;width:100%%}"
     "p{line-height:1.6}</style><h2>Eden Bridge PS5</h2><p>Sala: <b>%s:%d</b></p>"
-    "<p>Cerra ProsperoEden antes de continuar. Se guardara una copia de seguridad y se actualizaran IP, puerto y apodo.</p>"
+    "<p>Se guardaran IP, puerto y apodo. Si ProsperoEden esta abierto, desconectate de la sala anterior y volve a conectarte.</p>"
     "<form method=\"POST\" action=\"/v1/preview\">"
     "<input type=\"hidden\" name=\"host\" value=\"%s\"><input type=\"hidden\" name=\"port\" value=\"%d\">"
     "<label for=\"nick\">Apodo multijugador (prueba)</label><input id=\"nick\" name=\"nick\" maxlength=\"24\" pattern=\"[A-Za-z0-9_-]{1,24}\" placeholder=\"Skifrayer\" value=\"%s\" required style=\"display:block;padding:12px;margin:12px 0;width:90%%\">"
-    "<label><input type=\"checkbox\" name=\"closed\" value=\"yes\" required> Confirmo que ProsperoEden esta cerrado</label>"
     "<button type=\"submit\">Guardar sala en PS5</button></form></html>",ip,port,ip,port,nick);
   reply_html(fd,page);
 }
@@ -382,7 +381,6 @@ static void preview_form(int fd,const char *body) {
     nick[i]=c;i++;
   }
   if(i==0 || (p[i] && p[i]!='&')){reply(fd,400,"{\"ok\":false,\"error\":\"invalid nickname\"}");return;}
-  if(!strstr(body,"&closed=yes")) {reply(fd,400,"{\"ok\":false,\"error\":\"close ProsperoEden first\"}");return;}
   if(save_connection(ip,port,nick)) {
     reply(fd,500,"{\"ok\":false,\"error\":\"config not saved; check backup or config structure\"}");return;
   }
