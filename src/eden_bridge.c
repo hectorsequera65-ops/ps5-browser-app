@@ -208,7 +208,8 @@ static void reply_html(int fd,const char *body) {
 static int parse_room_query(const char *request,char *ip,int *port) {
   char path[256]={0};int p=0;char tail=0;
   if(sscanf(request,"GET %255s HTTP/1.",path)!=1)return -1;
-  if(sscanf(path,"/v1/prepare?host=%15[0-9.]&port=%d%c",ip,&p,&tail)!=2)return -1;
+  if(sscanf(path,"/v1/prepare?host=%15[0-9.]&port=%d%c",ip,&p,&tail)<2)return -1;
+  if(tail && tail!='&')return -1;
   if(!ip_ok(ip)||p<1||p>65535)return -1;
   *port=p;return 0;
 }
